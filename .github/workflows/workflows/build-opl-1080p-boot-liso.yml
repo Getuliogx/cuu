@@ -15,14 +15,19 @@ jobs:
       - name: Unzip patched OPL source
         run: |
           apt-get update >/dev/null 2>&1 || true
-          apt-get install -y unzip rsync >/dev/null 2>&1 || true
+          apt-get install -y unzip >/dev/null 2>&1 || true
 
           rm -rf src buildsrc artifact
           mkdir -p buildsrc src
 
+          if [ ! -f "OPL_2241_1080P_BOOT_LISO_SOURCE_FULL.zip" ]; then
+            echo "ERRO: O arquivo OPL_2241_1080P_BOOT_LISO_SOURCE_FULL.zip não está na raiz do repositório."
+            ls -la
+            exit 1
+          fi
+
           unzip -q OPL_2241_1080P_BOOT_LISO_SOURCE_FULL.zip -d buildsrc
 
-          # O ZIP pode vir com uma pasta raiz dentro. Copia tudo dela para src, incluindo arquivos ocultos.
           ROOT_DIR="$(find buildsrc -mindepth 1 -maxdepth 1 -type d | head -n 1)"
           if [ -z "$ROOT_DIR" ]; then
             echo "ERRO: não achei a pasta do source dentro do ZIP."
@@ -30,7 +35,9 @@ jobs:
             exit 1
           fi
 
-          rsync -a "$ROOT_DIR"/ src/
+          # Copia tudo sem rsync, inclusive arquivos/pastas ocultos.
+          (cd "$ROOT_DIR" && tar cf - .) | (cd src && tar xf -)
+
           echo "Source extraído em src:"
           ls -la src | head -40
 
@@ -44,14 +51,15 @@ jobs:
       - name: Collect ELF
         run: |
           mkdir -p artifact
-          find src -iname "*.ELF" -o -iname "*.elf"
+          echo "ELFs encontrados:"
+          find src \( -iname "*.ELF" -o -iname "*.elf" \) -print
           cp -f src/OPNPS2LD-*.ELF artifact/ 2>/dev/null || true
           cp -f src/OPNPS2LD*.ELF artifact/ 2>/dev/null || true
           cp -f src/opl.elf artifact/OPNPS2LD-2241-1080P-BOOT-LISO.ELF 2>/dev/null || true
           cp -f src/OPNPS2LD.ELF artifact/OPNPS2LD-2241-1080P-BOOT-LISO.ELF 2>/dev/null || true
           if ! ls artifact/*.ELF >/dev/null 2>&1; then
             echo "ERRO: compilou, mas não achei ELF final."
-            find src -maxdepth 3 -type f | grep -Ei '\.(ELF|elf)$' || true
+            find src -maxdepth 4 -type f | grep -Ei '\.(ELF|elf)$' || true
             exit 1
           fi
           ls -la artifact

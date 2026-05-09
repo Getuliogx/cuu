@@ -1,0 +1,27 @@
+name: Build OPL 2241 1080p REAL
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ps2dev/ps2dev:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        shell: bash
+        run: |
+          make clean || true
+          make -j2
+          find . -maxdepth 3 -iname "*.ELF" -o -iname "*.elf"
+      - name: Collect ELF
+        shell: bash
+        run: |
+          mkdir -p out
+          find . -iname "*.ELF" -o -iname "*.elf" | while read f; do cp "$f" out/; done
+          ls -lah out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OPNPS2LD-2241-1080P-REAL-BOOT-ENGINE
+          path: out/*
